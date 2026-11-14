@@ -1,6 +1,6 @@
 {
   "name": "cortico-world-personal-agenda",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "main": "./src/index.mjs",
   "description": "个人日程 · 桌面倒计时与 QQ 提醒扩展，支持独立时区与复用官方 QQ 插件",

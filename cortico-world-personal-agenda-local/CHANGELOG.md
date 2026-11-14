@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.1
+
+- Expand the npm package README with feature overview, quick-start steps, and live preview screenshots.
+- Add the desktop countdown widget screenshot and refresh editor preview screenshots in docs.
+
 ## 0.9.0
 
 - Add QQ group reminders alongside private reminders, with separate delivery receipts and retries per destination.
