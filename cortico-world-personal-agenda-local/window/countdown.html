@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Coopanion 倒计时</title>
+  <link rel="stylesheet" href="countdown.css">
+  <script type="module" src="countdown-renderer.mjs"></script>
+</head>
+<body>
+<main id="card" class="card" data-urgency="later">
+  <header class="drag">
+    <span class="widget-name"><svg class="glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9"/></svg>倒计时</span>
+    <div class="controls">
+      <button id="topmost" class="icon" title="取消置顶" aria-label="取消置顶" aria-pressed="true"><svg viewBox="0 0 24 24"><path d="M9 4h6l-1 5 3 3v2H7v-2l3-3zM12 14v6"/></svg></button>
+      <button id="collapse" class="icon" title="收起" aria-label="收起"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+      <button id="hide" class="icon" title="隐藏（可在插件页面重新打开）" aria-label="隐藏倒计时"><svg viewBox="0 0 24 24"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
+    </div>
+  </header>
+  <section class="hero drag">
+    <div class="tags">
+      <span id="activity" class="tag" hidden></span>
+      <span id="status" class="tag tag-warn" hidden>预计时间</span>
+      <span id="pinned" class="pinned" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6l-1 5 3 3v2H7v-2l3-3zM12 14v6"/></svg>已固定</span>
+    </div>
+    <h1 id="title">正在读取日程</h1>
+    <p id="translation" class="translation" hidden></p>
+    <div id="clock" class="clock" role="timer" aria-label="剩余时间">
+      <span id="days-part" class="days" hidden><span id="days" class="days-number">0</span><span class="days-unit">天</span></span>
+      <span id="hms" class="hms"></span>
+      <span id="empty" class="empty" hidden></span>
+    </div>
+    <p id="target" class="target"></p>
+  </section>
+  <p id="notice" class="notice" hidden></p>
+  <footer id="footer">
+    <button id="list-toggle" class="text-button" aria-expanded="false" aria-controls="list-section">全部日程<span id="count" class="count">0</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>
+    <button id="open" class="text-button link" hidden><span id="open-label">查看详情</span><svg class="external" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M17 14v5H5V7h5"/></svg></button>
+  </footer>
+  <section id="list-section" class="list-section" hidden>
+    <div class="list-heading"><span>接下来</span><button id="auto" class="text-button auto">跟随下一项</button></div>
+    <div id="events" class="events"></div>
+    <p class="list-note">点选事项可固定显示，每项按自身时区显示</p>
+  </section>
+</main>
+</body>
+</html>

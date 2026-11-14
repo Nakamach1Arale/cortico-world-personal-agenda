@@ -1,0 +1,119 @@
+/* Desktop countdown shell. */
+:root {
+  --bg: #1c1d28;
+  --line: #ffffff17;
+  --hover: #ffffff0f;
+  --ink: #efeef6;
+  --ink-2: #b9b7c9;
+  --ink-3: #908ea6;
+  --warn: #f3c37f;
+  --hot: #ff9d86;
+  --accent: #c9b8ff;
+  --accent-soft: #c9b8ff1f;
+  --ui: "Microsoft YaHei UI", "Segoe UI", sans-serif;
+  --num: "Bahnschrift", "Segoe UI Variable Display", "Segoe UI", sans-serif;
+  font-family: var(--ui);
+  color: var(--ink);
+  color-scheme: dark;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body { margin: 0; overflow: hidden; user-select: none; }
+button { font: inherit; color: inherit; cursor: pointer; app-region: no-drag; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[hidden] { display: none !important; }
+svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+.card { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.drag { cursor: grab; }
+body.is-dragging .drag { cursor: grabbing; }
+
+header { height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 8px 0 16px; }
+.widget-name { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.glyph { width: 14px; height: 14px; color: var(--accent); }
+.controls { display: flex; gap: 2px; opacity: .5; transition: opacity .15s; }
+.card:hover .controls, .controls:focus-within { opacity: 1; }
+.icon { width: 28px; height: 28px; padding: 6px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-3); display: grid; place-items: center; }
+.icon:hover { background: var(--hover); color: var(--ink); }
+.icon[aria-pressed="true"] { color: var(--accent); }
+.icon svg { width: 16px; height: 16px; }
+
+.text-button { border: 0; background: transparent; padding: 4px 0; color: var(--ink-2); font-size: 12px; line-height: 1.5; display: inline-flex; align-items: center; gap: 4px; }
+.text-button:hover { color: var(--ink); }
+.notice { margin: 0; padding: 0 16px 12px; color: var(--warn); font-size: 11px; line-height: 1.6; }
+footer { height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-top: 1px solid var(--line); }
+
+/* Countdown */
+.hero { padding: 4px 18px 16px; }
+.tags { display: flex; align-items: center; gap: 6px; min-height: 20px; }
+.tag { font-size: 11px; line-height: 18px; padding: 0 7px; border-radius: 4px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.tag-warn { background: #f3c37f1c; color: var(--warn); }
+.pinned { margin-left: auto; display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: var(--ink-3); }
+.pinned svg { width: 13px; height: 13px; }
+
+h1 { margin: 10px 0 0; font-size: 19px; line-height: 1.35; font-weight: 600; letter-spacing: .2px; white-space: pre-line; text-wrap: balance; overflow-wrap: anywhere; }
+[lang="ja"] { font-family: "Yu Gothic UI", "Meiryo", var(--ui); }
+.translation { margin: 3px 0 0; font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+
+/* The time is the one loud element: whole days dominate far out, the ticking clock takes over on the last day. */
+.clock { display: flex; align-items: baseline; gap: 12px; margin-top: 16px; min-height: 58px; font-family: var(--num); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--clock, #dcd2ff); }
+.days { display: flex; align-items: baseline; gap: 4px; }
+.days-number { font-size: 52px; line-height: 1; font-weight: 600; font-stretch: 87.5%; letter-spacing: -1px; }
+.days-unit { font-family: var(--ui); font-size: 14px; color: var(--ink-2); }
+.hms { font-size: 26px; line-height: 1; font-weight: 400; letter-spacing: .5px; color: var(--ink-2); }
+.clock.no-days .hms { font-size: 48px; font-weight: 600; font-stretch: 87.5%; letter-spacing: 0; color: inherit; }
+.clock.is-empty { display: none; }
+.collapsed .clock.is-empty { display: flex; }
+.empty { font-family: var(--ui); font-size: 15px; color: var(--ink-2); }
+.target { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+
+.card[data-urgency="today"] { --clock: var(--warn); }
+.card[data-urgency="soon"] { --clock: var(--hot); }
+
+.count { margin-left: 2px; min-width: 18px; padding: 0 5px; border-radius: 4px; background: var(--hover); color: var(--ink-3); font-size: 11px; line-height: 17px; text-align: center; font-family: var(--num); }
+.chevron { width: 14px; height: 14px; color: var(--ink-3); transition: transform .15s; }
+[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+.link { color: var(--accent); }
+.link:hover { color: #e4dbff; }
+.external { width: 13px; height: 13px; }
+
+.list-section { padding: 10px 8px 10px; border-top: 1px solid var(--line); }
+.list-heading { display: flex; justify-content: space-between; align-items: center; margin: 0 8px 4px; font-size: 11px; color: var(--ink-3); }
+.auto { font-size: 11px; color: var(--accent); }
+.auto:disabled { color: var(--ink-3); opacity: .6; cursor: default; }
+.events { max-height: 210px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #4b4860 transparent; }
+.event { position: relative; width: 100%; display: grid; grid-template-columns: 1fr auto; column-gap: 12px; align-items: start; margin: 1px 0; padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; text-align: left; }
+.event:hover { background: var(--hover); }
+.event.selected { background: var(--accent-soft); }
+.event.selected::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 2px; border-radius: 2px; background: var(--accent); }
+.event-what { min-width: 0; }
+.event-title, .event-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.event-title { display: block; font-size: 12px; line-height: 1.45; color: var(--ink); }
+.event-sub { display: block; margin-top: 1px; font-size: 11px; line-height: 1.45; color: var(--ink-3); }
+.event-sub .activity { color: var(--ink-2); }
+.event-sub .activity + .translation-text::before { content: "，"; }
+.event-when { text-align: right; white-space: nowrap; }
+.event-relative { display: block; font-family: var(--num); font-size: 13px; line-height: 1.4; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.event-date { display: block; margin-top: 1px; font-size: 11px; line-height: 1.45; color: var(--ink-3); }
+.event-flag { color: var(--warn); }
+.list-note { margin: 8px 8px 0; font-size: 11px; line-height: 1.5; color: var(--ink-3); }
+
+/* Collapsed: one row, title on the left, time on the right. */
+.collapsed header { height: 34px; }
+.collapsed .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; padding: 0 18px 14px; }
+.collapsed .tags, .collapsed .translation, .collapsed .target, .collapsed footer, .collapsed .notice, .collapsed .list-section { display: none !important; }
+.collapsed h1 { margin: 0; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.collapsed .clock { margin: 0; min-height: 0; gap: 8px; }
+.collapsed .days-number { font-size: 26px; }
+.collapsed .days-unit { font-size: 12px; }
+.collapsed .hms, .collapsed .clock.no-days .hms { font-size: 22px; }
+.collapsed .clock.no-days .hms { color: inherit; }
+.collapsed .empty { font-size: 13px; }
+.collapsed .tentative-mark { display: inline; }
+.tentative-mark { display: none; margin-right: 6px; font-size: 11px; font-weight: 400; color: var(--warn); }
+
+@media (prefers-reduced-motion: reduce) {
+  .controls, .chevron { transition: none; }
+}

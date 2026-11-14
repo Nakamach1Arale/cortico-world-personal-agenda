@@ -1,0 +1,21 @@
+{
+  "name": "coopanion-personal-agenda",
+  "version": "0.9.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal agenda, QQ reminders and desktop countdown for Coopanion",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test plugins.test.mjs editor.test.mjs agenda-service.test.mjs countdown.test.mjs presentation.test.mjs reminders-switch.test.mjs timezone.test.mjs qq-setup.test.mjs group-qq.test.mjs",
+    "test:ui": "node ui-check.mjs",
+    "install:coopanion": "node scripts/install.mjs",
+    "pretest": "node scripts/check-release.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "25.17.0"
+  }
+}

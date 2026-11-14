@@ -1,0 +1,66 @@
+{
+  "name": "cortico-world-personal-agenda",
+  "version": "0.9.0",
+  "type": "module",
+  "main": "./src/index.mjs",
+  "description": "个人日程 · 桌面倒计时与 QQ 提醒扩展，支持独立时区与复用官方 QQ 插件",
+  "author": "Nakamach1Arale",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nakamach1Arale/cortico-world-personal-agenda.git"
+  },
+  "homepage": "https://github.com/Nakamach1Arale/cortico-world-personal-agenda#readme",
+  "bugs": {
+    "url": "https://github.com/Nakamach1Arale/cortico-world-personal-agenda/issues"
+  },
+  "os": [
+    "win32"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "cortico-world",
+    "cortico",
+    "agenda",
+    "countdown",
+    "qq",
+    "onebot"
+  ],
+  "files": [
+    "src",
+    "window",
+    "dist",
+    "describe.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "vendor"
+  ],
+  "cortico": {
+    "kind": "world",
+    "api": 6,
+    "displayName": "个人日程",
+    "icon": "window/icon.png",
+    "webUiClient": "dist/webui.js",
+    "webUiStyle": "dist/webui.css",
+    "describe": "describe.json",
+    "tags": [
+      "qq",
+      "im",
+      "apps",
+      "companion"
+    ],
+    "locales": {
+      "zh": {
+        "displayName": "个人日程",
+        "description": "管理日程、桌面倒计时挂件与 QQ 自动提醒，支持按日程独立设置时区并复用官方 QQ 连接。"
+      },
+      "en": {
+        "displayName": "Personal Agenda",
+        "description": "Manage events, a desktop countdown widget, and QQ reminders with per-event time zones and official QQ connection reuse."
+      }
+    }
+  }
+}
