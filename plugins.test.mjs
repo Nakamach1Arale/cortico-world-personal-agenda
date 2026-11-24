@@ -97,5 +97,5 @@ test('desktop widget never silently copies Coopanion.exe on start without explic
   assert.equal(win.running,false);
   assert.equal(existsSync(win.executable),false);
   assert.equal(win.status().runtime.installed,false);
-  assert.equal(win.status().runtime.canInstall,true);
+  assert.equal(win.status().runtime.canInstall,process.platform==='win32');
 });
