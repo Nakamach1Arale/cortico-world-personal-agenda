@@ -5,22 +5,57 @@ import {randomUUID} from 'node:crypto';
 import {existsSync,mkdirSync,readdirSync,copyFileSync,cpSync,writeFileSync} from 'node:fs';
 import {join,resolve} from 'node:path';
 
-export function ensureWidgetRuntime(botDir,repoRoot){
-  const runtime=resolve(botDir,'../../runtime/desktop-widgets'),exe=join(runtime,'electron.exe');
-  if(existsSync(exe))return exe;
-  if(process.platform!=='win32')return exe;
+function findCoopanionAppDir(botDir,repoRoot){
+  if(process.platform!=='win32')return null;
   const candidates=[resolve(botDir,'../../..'),repoRoot?resolve(repoRoot,'../../../..'):null,process.env.LOCALAPPDATA?join(process.env.LOCALAPPDATA,'Programs/Coopanion'):null].filter(Boolean);
-  const app=candidates.find(dir=>existsSync(join(dir,'Coopanion.exe')));
-  if(!app)return exe;
-  try{
-    mkdirSync(join(runtime,'resources/app'),{recursive:true});
-    const required=readdirSync(app).filter(f=>f==='Coopanion.exe'||/\.(dll|pak|bin)$/.test(f)||['icudtl.dat','vk_swiftshader_icd.json','LICENSE.electron.txt','LICENSES.chromium.html'].includes(f));
-    for(const name of required){const dest=join(runtime,name==='Coopanion.exe'?'electron.exe':name);if(!existsSync(dest))copyFileSync(join(app,name),dest);}
-    if(!existsSync(join(runtime,'locales'))&&existsSync(join(app,'locales')))cpSync(join(app,'locales'),join(runtime,'locales'),{recursive:true});
-    writeFileSync(join(runtime,'resources/app/package.json'),JSON.stringify({name:'coopanion-widget-runtime',version:'0.1.0',main:'bootstrap.cjs'}));
-    writeFileSync(join(runtime,'resources/app/bootstrap.cjs'),`const {isAbsolute}=require('node:path');const entry=process.argv.find(a=>a.startsWith('--widget-entry='))?.slice(15);if(!entry||!isAbsolute(entry)||!entry.endsWith('main.cjs'))throw new Error('Invalid widget entry');require(entry);\n`);
-  }catch{}
-  return exe;
+  return candidates.find(dir=>existsSync(join(dir,'Coopanion.exe')))??null;
+}
+
+function requiredRuntimeFiles(app){
+  return readdirSync(app).filter(f=>f==='Coopanion.exe'||/\.(dll|pak|bin)$/.test(f)||['icudtl.dat','vk_swiftshader_icd.json','LICENSE.electron.txt','LICENSES.chromium.html'].includes(f));
+}
+
+export function inspectWidgetRuntime(botDir,repoRoot){
+  const runtimeDir=resolve(botDir,'../../runtime/desktop-widgets');
+  const executable=join(runtimeDir,'electron.exe');
+  const installed=existsSync(executable);
+  const sourceDir=installed?null:findCoopanionAppDir(botDir,repoRoot);
+  let fileCount=0;
+  let hasLocales=false;
+  if(sourceDir){
+    try{
+      fileCount=requiredRuntimeFiles(sourceDir).length;
+      hasLocales=existsSync(join(sourceDir,'locales'));
+    }catch{}
+  }
+  return {
+    installed,
+    canInstall:!installed&&!!sourceDir,
+    sourceDir,
+    runtimeDir,
+    executable,
+    fileCount,
+    hasLocales,
+    filesSummary:['Coopanion.exe（重命名为 electron.exe）','运行所需 .dll / .pak / .bin 文件','icudtl.dat 与 vk_swiftshader_icd.json','locales/ 语言资源目录','resources/app/ 独立窗口启动脚本'],
+  };
+}
+
+export function installWidgetRuntime(botDir,repoRoot){
+  const info=inspectWidgetRuntime(botDir,repoRoot);
+  if(info.installed)return info.executable;
+  if(!info.sourceDir)throw new Error('未在本机找到 Coopanion.exe，无法初始化桌面倒计时运行环境。');
+  mkdirSync(join(info.runtimeDir,'resources/app'),{recursive:true});
+  const required=requiredRuntimeFiles(info.sourceDir);
+  for(const name of required){
+    const dest=join(info.runtimeDir,name==='Coopanion.exe'?'electron.exe':name);
+    if(!existsSync(dest))copyFileSync(join(info.sourceDir,name),dest);
+  }
+  if(!existsSync(join(info.runtimeDir,'locales'))&&existsSync(join(info.sourceDir,'locales'))){
+    cpSync(join(info.sourceDir,'locales'),join(info.runtimeDir,'locales'),{recursive:true});
+  }
+  writeFileSync(join(info.runtimeDir,'resources/app/package.json'),JSON.stringify({name:'coopanion-widget-runtime',version:'0.1.0',main:'bootstrap.cjs'}));
+  writeFileSync(join(info.runtimeDir,'resources/app/bootstrap.cjs'),`const {isAbsolute}=require('node:path');const entry=process.argv.find(a=>a.startsWith('--widget-entry='))?.slice(15);if(!entry||!isAbsolute(entry)||!entry.endsWith('main.cjs'))throw new Error('Invalid widget entry');require(entry);\n`);
+  return info.executable;
 }
 
 export class DesktopWindow {
@@ -29,11 +64,20 @@ export class DesktopWindow {
     this.executable=resolve(botDir,'../../runtime/desktop-widgets/electron.exe');
     this.child=null;this.running=false;this.error=null;this.pending=new Map();this.sequence=0;this.stopped=true;this.stderr='';this.socket=null;this.server=null;
   }
-  status(){return {running:this.running,pid:this.child?.pid??null,error:this.error};}
+  runtimeInfo(){return inspectWidgetRuntime(this.botDir,this.repoRoot);}
+  status(){
+    const runtime=this.runtimeInfo();
+    return {running:this.running,pid:this.child?.pid??null,error:this.error,runtime};
+  }
+  async installRuntime(){
+    installWidgetRuntime(this.botDir,this.repoRoot);
+    this.error=null;
+    await this.start();
+  }
   async start(){
     if(this.child)return;
-    if(!existsSync(this.executable))ensureWidgetRuntime(this.botDir,this.repoRoot);
-    if(!existsSync(this.executable)){this.error='桌面组件运行环境未安装';return;}
+    // Never silently copy Coopanion's Electron runtime; require explicit user confirmation via installRuntime().
+    if(!existsSync(this.executable)){this.error='桌面倒计时运行环境未就绪，请先在插件页面确认启用';return;}
     this.stopped=false;this.error=null;
     const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;delete env.NODE_OPTIONS;delete env.NODE_CHANNEL_FD;
     let resolveReady;const ready=new Promise(r=>{resolveReady=r;});

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0
+
+- Remove the official QQ reuse and local relay hijack mode: never read `worlds.qq` or call `setConnection` on other extensions; connect directly to OneBot v11 (e.g., NapCat) instead.
+- Replace cross-provider LLM resolution with self-contained OpenAI-compatible LLM settings inside this World (Base URL, model name, API Key stored via `ctx.secret()`, and optional reminder tone).
+- Remove reading `workspace/CONSTITUTION.md`; reminder wording now uses this World's own built-in or user-configured tone prompt.
+- Require explicit user confirmation in the WebUI (listing source directory, target directory, and files to copy) before copying Coopanion's Electron runtime files for the desktop countdown widget.
+
 ## 0.9.1
 
 - Expand the npm package README with feature overview, quick-start steps, and live preview screenshots.

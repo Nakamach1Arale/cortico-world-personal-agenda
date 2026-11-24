@@ -29,15 +29,20 @@ const panel={mount(ctx){
   const notice=el('div',{class:'cw-notice',role:'status','aria-live':'polite',hidden:true});
   function message(text,error=false){notice.hidden=!text;notice.textContent=text;notice.classList.toggle('is-error',error);}
   const heading=el('div',{class:'cw-heading'},el('div',{},el('div',{class:'cw-eyebrow'},'PERSONAL AGENDA'),el('h2',{},'让重要的事，准时发生。'),el('p',{class:'cw-muted'},'管理日程、桌面倒计时和 QQ 提醒。')));
-  const refresh=button('刷新',()=>load(),'quiet'),toggle=button('显示挂件',()=>control(data?.window?.visible?'hide':'show'),'quiet');
+  const refresh=button('刷新',()=>load(),'quiet'),toggle=button('显示挂件',()=>{
+    if(data?.window?.runtime?.installed===false)confirmWidgetRuntime();
+    else control(data?.window?.visible?'hide':'show');
+  },'quiet');
   heading.append(el('div',{class:'cw-actions'},toggle,refresh));root.append(heading,notice);
   const summary=el('div',{class:'cw-summary'}),body=el('div',{});root.append(summary);
-  let reminderSwitch,connectionHint;
+  let reminderSwitch,connectionHint,llmHint;
   {
     reminderSwitch=el('button',{type:'button',role:'switch','aria-label':'QQ 自动提醒','aria-checked':'true',class:'cw-reminder-switch',onClick:()=>setReminders(!(data?.qqRemindersEnabled!==false))});
     root.append(el('div',{class:'cw-reminder-setting'},el('div',{},el('strong',{},'QQ 自动提醒'),el('p',{class:'cw-small'},'关闭后暂停自动推送。')),reminderSwitch));
     connectionHint=el('p',{class:'cw-small'},'未接入 QQ');
-    root.append(el('div',{class:'cw-connection-setting'},el('div',{},el('strong',{},'QQ 接入'),connectionHint),button('设置连接',()=>editConnection(),'quiet')));
+    root.append(el('div',{class:'cw-connection-setting'},el('div',{},el('strong',{},'QQ 接入（OneBot）'),connectionHint),button('设置连接',()=>editConnection(),'quiet')));
+    llmHint=el('p',{class:'cw-small'},'未配置（固定格式 /日程 命令仍可用）');
+    root.append(el('div',{class:'cw-connection-setting cw-llm-setting'},el('div',{},el('strong',{},'自然语言模型（选填）'),llmHint),button('模型设置',()=>editLlm(),'quiet')));
   }
   root.append(body);
   const search=el('input',{type:'search',class:'cw-search',placeholder:'搜索标题、备注或详情','aria-label':'搜索日程',onInput:event=>{query=event.target.value;renderList();}});
@@ -48,16 +53,22 @@ const panel={mount(ctx){
   }
   function summaryCard(label,value,hint){return el('div',{class:'cw-stat'},el('span',{class:'cw-muted'},label),el('strong',{},value),...(hint?[el('span',{class:'cw-small'},hint)]:[]));}
   function render(){
-    toggle.textContent=data.window?.visible?'隐藏挂件':'显示挂件';toggle.setAttribute('aria-pressed',String(!!data.window?.visible));
+    const runtimeInstalled=data.window?.runtime?.installed!==false;
+    toggle.textContent=!runtimeInstalled?'启用桌面挂件':data.window?.visible?'隐藏挂件':'显示挂件';
+    toggle.setAttribute('aria-pressed',String(runtimeInstalled&&!!data.window?.visible));
     summary.replaceChildren();
     {
       const connection=data.connection;
       const destinations=[connection?.privateQQ?`私聊 ${connection.privateQQ}`:'',connection?.groupId?`群 ${connection.groupId}`:''].filter(Boolean).join('、');
-      connectionHint.textContent=connection?.connected?`已连接 · ${connection.mode==='manual'?'手动接入':'复用官方 QQ'} · ${destinations}${connection.routeConnected?'':' · 等待官方 QQ 连入'}`:connection?.error?.message??(connection?.connecting?'正在连接 QQ…':'未接入 QQ');
+      connectionHint.textContent=connection?.connected?`已连接 · ${destinations}`:connection?.error?.message??(connection?.connecting?'正在连接 OneBot…':'未接入 QQ');
+      const llm=data.llm;
+      llmHint.textContent=llm?.configured?`已配置 · ${llm.model}`:'未配置（固定格式 /日程 命令仍可用）';
       const upcoming=(data.events??[]).filter(e=>e.enabled&&Date.parse(e.start)>Date.now());
       const remindersOn=data.qqRemindersEnabled!==false;reminderSwitch.setAttribute('aria-checked',String(remindersOn));reminderSwitch.textContent=remindersOn?'已开启':'已关闭';
       const next=upcoming.sort((a,b)=>Date.parse(a.start)-Date.parse(b.start))[0];
-      summary.append(summaryCard('待发生',upcoming.length,next?`最近：${next.title}`:'暂无待办'),summaryCard('QQ 提醒',!remindersOn?'已关闭':data.connection?.configured===false?'待配置':data.connected?(data.agenda?.paused?'已暂停':'已连接'):'未连接',data.agenda?.last_error??(destinations||'未设置接收对象')),summaryCard('桌面倒计时',data.window?.running?(data.window.visible?'显示中':'已隐藏'):'未运行',data.window?.error??''));
+      const widgetValue=!runtimeInstalled?'待初始化':data.window?.running?(data.window.visible?'显示中':'已隐藏'):'未运行';
+      const widgetHint=!runtimeInstalled?'点击「启用桌面挂件」确认后复制运行文件':(data.window?.error??'');
+      summary.append(summaryCard('待发生',upcoming.length,next?`最近：${next.title}`:'暂无待办'),summaryCard('QQ 提醒',!remindersOn?'已关闭':data.connection?.configured===false?'待配置':data.connected?(data.agenda?.paused?'已暂停':'已连接'):'未连接',data.agenda?.last_error??(destinations||'未设置接收对象')),summaryCard('桌面倒计时',widgetValue,widgetHint));
       renderList();
     }
   }
@@ -110,9 +121,32 @@ const panel={mount(ctx){
     if(input.tagName!=='SELECT')heading.append(el('small',{class:'cw-field-requirement'+(input.required?' required':'')},input.required?'必填':'选填'));
     const wrapper=el('label',{class:'cw-field'},heading,input);if(hint)wrapper.append(el('small',{class:'cw-muted'},hint));form.append(wrapper);return input;
   }
+  function confirmWidgetRuntime(){
+    if(editorOpen||changing||!data)return;editorOpen=true;
+    const {d,form,error,close}=dialog('启用桌面倒计时挂件');
+    const rt=data.window?.runtime??{};
+    form.append(
+      el('p',{class:'cw-small'},'桌面倒计时挂件需要独立的 Electron 运行环境。确认后，将从本机 Coopanion 安装目录复制所需运行文件到扩展数据目录（不会修改主程序；不启用也可正常使用网页日程与 QQ 提醒）。'),
+      el('p',{class:'cw-small'},'来源目录：',rt.sourceDir??'未检测到本机 Coopanion.exe'),
+      el('p',{class:'cw-small'},'目标目录：',rt.runtimeDir??''),
+      el('p',{class:'cw-small'},'将复制的文件：'),
+      el('ul',{class:'cw-small'},...(rt.filesSummary??[]).map(item=>el('li',{},item))),
+    );
+    const confirm=el('button',{type:'submit',class:'cw-button primary',disabled:!rt.canInstall},rt.canInstall?'确认复制并启动挂件':'未检测到本机运行文件');
+    form.append(error,el('div',{class:'cw-dialog-footer'},button('取消',close,'quiet'),confirm));
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();if(confirm.disabled)return;confirm.disabled=true;error.textContent='';
+      try{
+        const response=await ctx.invoke('setup-widget-runtime',[{confirmed:true}]);
+        if(!response.ok)throw new Error(response.error??'运行环境初始化失败');
+        close();data=response;render();message('桌面倒计时挂件已初始化并启动。');
+      }catch(e){error.textContent=e.message??String(e);}finally{confirm.disabled=!rt.canInstall;}
+    });
+    d.showModal();
+  }
   function editConnection(){
     if(editorOpen||changing||!data)return;editorOpen=true;
-    const {d,form,error,close}=dialog('QQ 提醒接入'),current=data.connection??{};
+    const {d,form,error,close}=dialog('QQ 提醒接入（OneBot）'),current=data.connection??{};
     const privateQQ=field(form,'私聊接收 QQ',el('input',{name:'privateQQ',inputmode:'numeric',maxLength:16,value:current.privateQQ?String(current.privateQQ):'',placeholder:'可私聊机器人管理日程'}));
     const groupId=field(form,'接收群号',el('input',{name:'groupId',inputmode:'numeric',maxLength:16,value:current.groupId?String(current.groupId):'',placeholder:'接收日程提醒的群号'}));
     const permissions=el('fieldset',{class:'cw-group-permissions'},el('legend',{},'群内添加日程'));form.append(permissions);
@@ -129,18 +163,14 @@ const panel={mount(ctx){
       const requirement=masterQQ.parentElement.querySelector('.cw-field-requirement');
       requirement.textContent=masterQQ.required?'必填':'选填';requirement.classList.toggle('required',masterQQ.required);
     };allowGroupAdd.addEventListener('change',updatePermissions);groupAddByOwner.addEventListener('change',updatePermissions);updatePermissions();
-    const mode=field(form,'连接方式',el('select',{name:'qqMode'},el('option',{value:'official'},'复用官方 QQ（推荐）'),el('option',{value:'manual'},'手动连接 OneBot')));mode.value=current.mode??'official';
-    const officialNote=el('p',{class:'cw-small cw-setup-note'},current.officialAvailable?'已检测到官方 QQ 插件，将直接复用连接。':'未检测到官方 QQ 插件，请先配置官方 QQ 或改用手动连接。');form.append(officialNote);
-    const manual=el('div',{class:'cw-manual-connection'});form.append(manual);
-    const url=field(manual,'OneBot WebSocket 地址',el('input',{name:'qqUrl',type:'url',required:true,value:current.upstreamUrl??'ws://127.0.0.1:3001',placeholder:'ws://127.0.0.1:3001'}));
-    const token=field(manual,'访问令牌',el('input',{name:'qqToken',type:'password',autocomplete:'new-password',maxLength:4096,placeholder:current.tokenSet?'已保存，留空则不修改':'与 OneBot 访问令牌一致'}));
-    const noToken=el('input',{name:'qqNoToken',type:'checkbox',checked:current.noToken===true});manual.append(el('label',{class:'cw-check'},noToken,'无需访问令牌'));
+    const url=field(form,'OneBot WebSocket 地址',el('input',{name:'qqUrl',type:'url',required:true,value:current.upstreamUrl??'ws://127.0.0.1:3001',placeholder:'ws://127.0.0.1:3001'}),'直接连接 NapCat / OneBot 正向 WebSocket，不影响其他 QQ 扩展。');
+    const token=field(form,'访问令牌',el('input',{name:'qqToken',type:'password',autocomplete:'new-password',maxLength:4096,placeholder:current.tokenSet?'已保存，留空则不修改':'与 OneBot 访问令牌一致'}));
+    const noToken=el('input',{name:'qqNoToken',type:'checkbox',checked:current.noToken===true});form.append(el('label',{class:'cw-check'},noToken,'无需访问令牌'));
     token.addEventListener('input',()=>{if(token.value)noToken.checked=false;});
     const advanced=el('details',{class:'cw-setup-advanced'},el('summary',{},'高级选项'));form.append(advanced);
-    const port=field(advanced,'日程转接端口',el('input',{name:'qqRelayPort',type:'number',min:1024,max:65535,value:String(current.relayPort??3002)}),'默认 3002，不能与 OneBot 端口相同。');
     const corePort=field(advanced,'Coopanion 接口端口',el('input',{name:'qqCorePort',type:'number',min:1024,max:65535,value:String(current.corePort??17788)}),'默认 17788。');
     const result=el('p',{class:'cw-setup-result',role:'status','aria-live':'polite'});form.append(result,error);
-    const payload=()=>({privateQQ:privateQQ.value,groupId:groupId.value,masterQQ:masterQQ.value,allowGroupAdd:allowGroupAdd.checked,groupAddByOwner:groupAddByOwner.checked,groupAddByAdmin:groupAddByAdmin.checked,groupAddByGroupOwner:groupAddByGroupOwner.checked,mode:mode.value,relayPort:Number(port.value||3002),corePort:Number(corePort.value||17788),...(mode.value==='manual'?{upstreamUrl:url.value,token:token.value,noToken:noToken.checked}:{})});
+    const payload=()=>({privateQQ:privateQQ.value,groupId:groupId.value,masterQQ:masterQQ.value,allowGroupAdd:allowGroupAdd.checked,groupAddByOwner:groupAddByOwner.checked,groupAddByAdmin:groupAddByAdmin.checked,groupAddByGroupOwner:groupAddByGroupOwner.checked,corePort:Number(corePort.value||17788),upstreamUrl:url.value,token:token.value,noToken:noToken.checked});
     const check=button('检测连接',async()=>{
       if(check.disabled)return;check.disabled=true;save.disabled=true;error.textContent='';result.textContent='正在检测连接…';
       try{const response=await ctx.invoke('test-connection',[payload()]);result.textContent=response.message??response.error??'检测完成';result.classList.toggle('is-error',!response.ok);}
@@ -148,12 +178,32 @@ const panel={mount(ctx){
     },'quiet');
     const save=el('button',{type:'submit',class:'cw-button primary'},'保存并连接');
     form.append(el('div',{class:'cw-dialog-footer'},button('取消',close,'quiet'),check,save));
-    const updateMode=()=>{manual.hidden=mode.value!=='manual';officialNote.hidden=mode.value!=='official';url.disabled=token.disabled=noToken.disabled=mode.value!=='manual';};mode.addEventListener('change',updateMode);updateMode();
     form.addEventListener('submit',async event=>{
       event.preventDefault();if(save.disabled)return;save.disabled=true;check.disabled=true;error.textContent='';
-      try{const response=await ctx.invoke('save-connection',[payload()]);if(!response.ok)throw new Error(response.error??'连接设置未保存');token.value='';close();data=response;render();message(response.connected?'QQ 接入已保存并连接。':response.connection?.error?.message??'已保存，正在连接 QQ…');}
+      try{const response=await ctx.invoke('save-connection',[payload()]);if(!response.ok)throw new Error(response.error??'连接设置未保存');token.value='';close();data=response;render();message(response.connected?'QQ 接入已保存并连接。':response.connection?.error?.message??'已保存，正在连接 OneBot…');}
       catch(e){error.textContent=e.message??String(e);}finally{save.disabled=false;check.disabled=false;}
     });d.showModal();privateQQ.focus();
+  }
+  function editLlm(){
+    if(editorOpen||changing||!data)return;editorOpen=true;
+    const {d,form,error,close}=dialog('自然语言模型设置（选填）'),current=data.llm??{};
+    const baseUrl=field(form,'模型接口地址（Base URL）',el('input',{name:'llmBaseUrl',type:'url',maxLength:2048,value:current.baseUrl??'',placeholder:'例如：https://api.deepseek.com/v1'}),'兼容 OpenAI Chat Completions 接口；留空则仅使用固定格式 /日程 命令。');
+    const model=field(form,'模型名称',el('input',{name:'llmModel',maxLength:120,value:current.model??'',placeholder:'例如：deepseek-chat'}));
+    const apiKey=field(form,'API Key',el('input',{name:'llmApiKey',type:'password',autocomplete:'new-password',maxLength:4096,placeholder:current.keySet?'已保存，留空则不修改':'填写本扩展专用的 API Key'}));
+    const clearKey=el('input',{name:'llmClearKey',type:'checkbox',checked:false});
+    if(current.keySet){form.append(el('label',{class:'cw-check'},clearKey,'清除已保存的 API Key'));apiKey.addEventListener('input',()=>{if(apiKey.value)clearKey.checked=false;});}
+    const style=field(form,'提醒开场白口吻',el('textarea',{name:'llmStyle',maxLength:500,rows:2,value:current.style??'',placeholder:'例如：简短友好、像贴心伙伴一样提醒（留空使用默认口吻）'}));
+    const save=el('button',{type:'submit',class:'cw-button primary'},'保存设置');
+    form.append(error,el('div',{class:'cw-dialog-footer'},button('取消',close,'quiet'),save));
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();if(save.disabled)return;save.disabled=true;error.textContent='';
+      try{
+        const response=await ctx.invoke('save-llm',[{baseUrl:baseUrl.value,model:model.value,apiKey:apiKey.value,clearKey:clearKey.checked,style:style.value}]);
+        if(!response.ok)throw new Error(response.error??'模型配置未保存');
+        apiKey.value='';close();data=response;render();message(response.llm?.configured?'语言模型设置已保存。':'已关闭自然语言模型。');
+      }catch(e){error.textContent=e.message??String(e);}finally{save.disabled=false;}
+    });
+    d.showModal();baseUrl.focus();
   }
   function edit(event){
     if(editorOpen||changing)return;editorOpen=true;
